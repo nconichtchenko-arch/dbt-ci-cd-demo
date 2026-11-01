@@ -1,0 +1,19 @@
+version: 2
+
+models:
+  - name: sales_summary
+    description: "Агрегация продаж по дням"
+    columns:
+      - name: order_date
+        description: "Дата продажи"
+        tests:
+          - not_null
+          - unique
+      - name: total_orders
+        description: "Количество уникальных заказов"
+        tests:
+          - not_null
+      - name: total_revenue
+        description: "Общая выручка за день"
+        tests:
+          - not_null
