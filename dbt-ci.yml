@@ -1,0 +1,67 @@
+name: dbt CI/CD
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  dbt-compile:
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: dwh_user
+          POSTGRES_PASSWORD: dwh_password
+          POSTGRES_DB: dwh_marketplace
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+
+    - name: Set up Python
+      uses: actions/setup-python@v5
+      with:
+        python-version: '3.11'
+
+    - name: Install dependencies
+      run: |
+        pip install dbt-postgres
+
+    - name: Create dbt profiles.yml
+      run: |
+        mkdir -p ~/.dbt
+        cat > ~/.dbt/profiles.yml <<EOF
+        dbt_project:
+          outputs:
+            dev:
+              dbname: dwh_marketplace
+              host: localhost
+              pass: dwh_password
+              port: 5432
+              schema: dbt_ci_demo
+              threads: 1
+              type: postgres
+              user: dwh_user
+          target: dev
+        EOF
+
+    - name: Run dbt deps
+      run: |
+        cd dbt_project
+        dbt deps
+
+    - name: Compile dbt project
+      run: |
+        cd dbt_project
+        dbt compile
