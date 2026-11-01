@@ -7,7 +7,7 @@ on:
     branches: [ main ]
 
 jobs:
-  dbt-compile:
+  dbt-run-and-test:
     runs-on: ubuntu-latest
 
     services:
@@ -36,7 +36,7 @@ jobs:
 
     - name: Install dependencies
       run: |
-        pip install dbt-postgres
+        pip install dbt-postgres psycopg2-binary
 
     - name: Create dbt profiles.yml
       run: |
@@ -56,12 +56,45 @@ jobs:
           target: dev
         EOF
 
+    - name: Create test table fct_sales
+      run: |
+        python -c "
+        import psycopg2
+        conn = psycopg2.connect(host='localhost', port=5432, dbname='dwh_marketplace', user='dwh_user', password='dwh_password')
+        cur = conn.cursor()
+        cur.execute('CREATE SCHEMA IF NOT EXISTS dbt_schema;')
+        cur.execute('''
+            CREATE TABLE IF NOT EXISTS dbt_schema.fct_sales (
+                invoice_no VARCHAR(50),
+                stock_code VARCHAR(50),
+                customer_id INT,
+                order_date DATE,
+                total_quantity BIGINT,
+                total_revenue NUMERIC
+            );
+        ''')
+        cur.execute('''
+            INSERT INTO dbt_schema.fct_sales VALUES
+            ('INV001', 'STK001', 1, '2026-10-01', 2, 100.50),
+            ('INV002', 'STK002', 2, '2026-10-02', 1, 50.25);
+        ''')
+        conn.commit()
+        cur.close()
+        conn.close()
+        print('Test table created.')
+        "
+
     - name: Run dbt deps
       run: |
         cd dbt_project
         dbt deps
 
-    - name: Compile dbt project
+    - name: Run dbt run
       run: |
         cd dbt_project
-        dbt compile
+        dbt run
+
+    - name: Run dbt test
+      run: |
+        cd dbt_project
+        dbt test
